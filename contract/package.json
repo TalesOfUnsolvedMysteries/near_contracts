@@ -1,0 +1,17 @@
+{
+  "name": "tbas_near",
+  "version": "0.2.0",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "build": "asb",
+    "build:debug": "asb --target debug",
+    "test": "asp --nologo"
+  },
+  "dependencies": {
+    "near-sdk-as": "3.1.0"
+  },
+  "devDependencies": {
+    "shelljs": "^0.8.4"
+  }
+}
