@@ -19,32 +19,33 @@ export async function initContract() {
   window.contract = await new Contract(window.walletConnection.account(), nearConfig.contractName, {
     // View methods are read only. They don't modify the state, but usually return some value.
     viewMethods: [
-      'hasAccessory',
       'getAccessoriesForUser',
-      'getGlobalAccessories',
       'getGameTokens',
-      'getUserObject',
-      'turnsToPlay',
+      'getGlobalAccessories',
       'getLine',
+      'getUserObject',
+      'hasAccessory',
+      'turnsToPlay',
     ],
     // Change methods can modify the state. But you don't receive the returned value when called.
     changeMethods: [
-      'setPriceToUnlockUser',     // admin
-      'setMaxPointsReward',       // admin
-      'setBaseURI',               // admin
-      'setMaxLineCapacity',       // admin
+      'buyAccessory',             // user - payable
+      'takeUserOwnership',        // user - payable
+
+      'addToLine',                // admin
       'allocateUser',             // admin
-      'takeUserOwnership',        // admin
-      'unlockAccessoryForPublic', // admin
+      'buyAccessoryWithPoints',   // user
+      'peek',                     // admin
       'removeAccessoryForPublic', // admin
-      'setPriceForAccessory',     // admin
-      'unlockAccessoryForUser',   // admin
-      'buyAccessory',             // admin
-      'buyAccessoryWithPoints',   // admin
       'rewardGameToken',          // admin
       'rewardPoints',             // admin
-      'addToLine',                // admin
-      'peek',                     // admin
+      'setBaseURI',               // admin
+      'setMaxLineCapacity',       // admin
+      'setMaxPointsReward',       // admin
+      'setPriceForAccessory',     // admin
+      'setPriceToUnlockUser',     // admin
+      'unlockAccessoryForPublic', // admin
+      'unlockAccessoryForUser',   // admin
     ],
   })
 }

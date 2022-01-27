@@ -71,62 +71,77 @@ function isOwner (): bool {
 }
 
 // admin functions
-export function setPriceToUnlockUser (price: u128) {
+export function setPriceToUnlockUser (price: u128): void {
   assert(isOwner(), "You are not authorized to run this function")
   assert(!price.isZero(), "price must be greater than zero")
-  let priceToUnlockUser = storage.get<u128>(priceToUnlockUserKey, u128.One)
+  let priceToUnlockUser = u128.One
+  if (storage.hasKey(priceToUnlockUserKey)) {
+    priceToUnlockUser = storage.getSome<u128>(priceToUnlockUserKey)
+  }
   assert(price == priceToUnlockUser, "price cant be the same")
   storage.set<u128>(priceToUnlockUserKey, price)
 }
 
-export function setMaxPointsReward (maxPointsReward: u16) {
+export function setMaxPointsReward (maxPointsReward: u16): void {
   assert(isOwner(), "You are not authorized to run this function")
   storage.set<u16>(maxPointsRewardKey, maxPointsReward)
 }
 
-export function setBaseURI (uri: string) {
+export function setBaseURI (uri: string): void {
   assert(isOwner(), "You are not authorized to run this function")
   storage.setString(_baseURIKey, uri)
 }
 
-export function setMaxLineCapacity (maxLineCapacity: u16) {
+export function setMaxLineCapacity (maxLineCapacity: u16): void {
   assert(isOwner(), "You are not authorized to run this function")
   storage.set<u16>(maxLineCapacityKey, maxLineCapacity)
 }
 
-export function allocateUser (uuid: string, unlockKey: Uint8Array) {
+export function allocateUser (uuid: string, unlockKey: Uint8Array): void {
   assert(isOwner(), "You are not authorized to run this function")
-  let nextUserId = storage.get<u32>(nextUserIdKey) || 1
+  let nextUserId = u32.MIN_VALUE
+  if (storage.hasKey(nextUserIdKey)) {
+    nextUserId = storage.getSome<u32>(nextUserIdKey)
+  }
   assert(nextUserId < u32.MAX_VALUE, "max number of player reached")
   userToUnlock.set(nextUserId, unlockKey)
   storage.set<u32>(nextUserIdKey, nextUserId + 1)
   // how to emit an event? TODO
 }
 
-function _addAccessoryToUser (userId: u32, accessoryId: u8) {
-  const accessories = userToAccessories.get(userId) || []
+function _addAccessoryToUser (userId: u32, accessoryId: u8): void {
+  let accessories: u8[] = []
+  if (userToAccessories.contains(userId)) {
+    accessories = userToAccessories.getSome(userId)
+  }
   accessories.push(accessoryId)
   userToAccessories.set(userId, accessories)
 }
     
 function hasAccessory(userId: u32, accessoryId: u8): bool {
-  const accessories = userToAccessories.get(userId) || [];
+  if (!userToAccessories.contains(userId)) {
+    return false
+  }
+  const accessories = userToAccessories.getSome(userId)
   // search if accessory_id is already registered for this user;
   for (let i = 0; i < accessories.length; i++) {
-      const _accessoryId = accessories[i];
+      const _accessoryId = accessories[i]
       if (_accessoryId == 0) {
           break;
       }
       if (_accessoryId == accessoryId) {
-          return true;
+          return true
       }
   }
-  return false;
+  return false
 }
 
-function mergeUsers (userIdCell: u32, userIdAndroid: u32) {
+function mergeUsers (userIdCell: u32, userIdAndroid: u32): void {
   // merge accessories, check for possible duplicates
-  const _androidAccessories = userToAccessories.get(userIdAndroid) || []
+  let _androidAccessories: u8[] = []
+  if (userToAccessories.contains(userIdAndroid)) {
+    _androidAccessories = userToAccessories.getSome(userIdAndroid)
+  }
   for (let i = 0; i < _androidAccessories.length; i++ ) {
     const accessoryId = _androidAccessories[i]
     if (!hasAccessory(userIdCell, accessoryId)) {
@@ -136,8 +151,14 @@ function mergeUsers (userIdCell: u32, userIdAndroid: u32) {
   userToAccessories.delete(userIdAndroid)
 
   // merge game tokens, concatenate
-  const _gameTokenIndexes = userToGameTokens.get(userIdAndroid) || []
-  const gameTokenIndexes = userToGameTokens.get(userIdCell) || []
+  let _gameTokenIndexes: u32[] = []
+  if (userToGameTokens.contains(userIdAndroid)) {
+    _gameTokenIndexes = userToGameTokens.getSome(userIdAndroid)
+  }
+  let gameTokenIndexes: u32[] = []
+  if (userToGameTokens.contains(userIdCell)) {
+    gameTokenIndexes = userToGameTokens.getSome(userIdCell)
+  }
   for (let i = 0; i < _gameTokenIndexes.length; i++) {
     const _tokenIndex = _gameTokenIndexes[i]
     gameTokens[_tokenIndex].owner = userIdCell
@@ -147,8 +168,14 @@ function mergeUsers (userIdCell: u32, userIdAndroid: u32) {
   userToGameTokens.set(userIdCell, gameTokenIndexes)
 
   // merge game score
-  const oldScore = userToPoints.get(userIdAndroid) || 0
-  const currentScore = userToPoints.get(userIdCell) || 0
+  let oldScore = 0
+  if (userToPoints.contains(userIdAndroid)) {
+    oldScore = userToPoints.getSome(userIdAndroid)
+  }
+  let currentScore = 0
+  if (userToPoints.contains(userIdCell)) {
+    currentScore = userToPoints.getSome(userIdCell)
+  }
   userToPoints.set(userIdCell, oldScore + currentScore)
   userToPoints.delete(userIdAndroid)
 
@@ -157,18 +184,21 @@ function mergeUsers (userIdCell: u32, userIdAndroid: u32) {
 }
 
 @payable
-export function takeUserOwnership (userId: u32, secret: string) {
-  const attachedDeposit = Context.attachedDeposit;
-  const priceToUnlockUser = storage.get<u128>(priceToUnlockUserKey, u128.One)
+export function takeUserOwnership (userId: u32, secret: string): void {
+  const attachedDeposit = Context.attachedDeposit
+  let priceToUnlockUser = u128.One
+  if (storage.contains(priceToUnlockUserKey)) {
+    priceToUnlockUser = storage.getSome<u128>(priceToUnlockUserKey)
+  }
   assert(attachedDeposit == priceToUnlockUser, "unlock the user requires a deposit of $")
   const unlockKey = userToUnlock.getSome(userId)
   
   assert(math.keccak256(encode<string, Uint8Array>(secret)) == unlockKey, "the secret word is not correct")
   // check if there is an existing user id associated to this msg.sender
   const sender = Context.sender
-  const previousUserId = accountToUser.get(sender)
-  if (previousUserId) {
-      mergeUsers(userId, previousUserId)
+  if (accountToUser.contains(sender)) {
+    const previousUserId: u32 = accountToUser.getSome(sender)
+    mergeUsers(userId, previousUserId)
   }
   accountToUser.set(sender, userId)
   userToAccount.set(userId, sender)
@@ -177,7 +207,7 @@ export function takeUserOwnership (userId: u32, secret: string) {
 }
 
 // accessories functionality
-export function unlockAccessoryForPublic (accessoryId: u8) {
+export function unlockAccessoryForPublic (accessoryId: u8): void {
   assert(isOwner(), "You are not authorized to run this function")
   assert(accessoryId <= 125, "ids greater than 125 are reserved for premium accessories")
   for (let i = 0; i < globalAccessories.length; i++) {
@@ -190,7 +220,7 @@ export function unlockAccessoryForPublic (accessoryId: u8) {
   globalAccessories.push(accessoryId);
 }
 
-export function removeAccessoryForPublic (accessoryId: u8) {
+export function removeAccessoryForPublic (accessoryId: u8): void {
   assert(isOwner(), "You are not authorized to run this function")
   for (let i = 0; i < globalAccessories.length; i++) {
       const _accessoryId = globalAccessories[i];
@@ -201,7 +231,7 @@ export function removeAccessoryForPublic (accessoryId: u8) {
   }
 }
 
-export function setPriceForAccessory(accessoryId: u8, price: u128, pointsPrice: u32) {
+export function setPriceForAccessory(accessoryId: u8, price: u128, pointsPrice: u32): void {
   assert(isOwner(), "You are not authorized to run this function")
   assert(accessoryId > 125, "ids from 0 to 125 are reserved for free global accessories");
   // price should be greater than zero
@@ -212,14 +242,14 @@ export function setPriceForAccessory(accessoryId: u8, price: u128, pointsPrice: 
   premiumAccessories.push(accessoryId)
 }
 
-export function unlockAccessoryForUser(userId: u32, accessoryId: u8) {
+export function unlockAccessoryForUser(userId: u32, accessoryId: u8): void {
   assert(isOwner(), "You are not authorized to run this function")
   assert(!hasAccessory(userId, accessoryId), "accessory is already registered for this user")
   _addAccessoryToUser(userId, accessoryId)
 }
 
 @payable
-export function buyAccessory(accessoryId: u8) {
+export function buyAccessory(accessoryId: u8): void {
   assert(accessoryId > 125, "ids from 0 to 125 are reserved for free global accessories")
   const priceForAccessory = accessoriesToPrices.getSome(accessoryId)
   const userAccount = Context.sender
@@ -231,35 +261,48 @@ export function buyAccessory(accessoryId: u8) {
   // total_crypto += value; 
 }
 
-export function buyAccessoryWithPoints(accessoryId: u8) {
+export function buyAccessoryWithPoints(accessoryId: u8): void {
   assert(accessoryId > 125, "ids from 0 to 125 are reserved for free global accessories")
   const pointsForAccessory = accessoriesToPointsPrice.getSome(accessoryId)
   const userAccount = Context.sender
   const _userId = accountToUser.getSome(userAccount)
   assert(!hasAccessory(_userId, accessoryId), "accessory is already registered for this user")
-  const value = userToPoints.get(_userId) || 0
+  let value: u32 = 0
+  if (userToPoints.contains(_userId)) {
+    value = userToPoints.getSome(_userId)
+  }
   assert(value >= pointsForAccessory, "user don't have enough points to buy this accessory")
   userToPoints.set(_userId, value - pointsForAccessory)
   _addAccessoryToUser(_userId, accessoryId)
 }
 
 export function getAccessoriesForUser (userId: u32): u8[] {
-  return userToAccessories.get(userId) || [];
+  if (userToAccessories.contains(userId)) {
+    return userToAccessories.getSome(userId)
+  }
+  return []
 }
 
 // TODO
-export function getGlobalAccessories () {
-  return globalAccessories;
+export function getGlobalAccessories (): u8[] {
+  const accessories: u8[] = []
+  for (let i = 0; i < globalAccessories.length; i++) {
+    accessories.push(globalAccessories[i]);
+  }
+  return accessories;
 }
 
 // game tokens - only rewarded by the admin 
-export function rewardGameToken (userId: u32, uriMetadata: string) {
+export function rewardGameToken (userId: u32, uriMetadata: string): void {
   assert(isOwner(), "You are not authorized to run this function")
   assert(userId != 0, "a valid user_id is required")
   const gameToken = new GameToken(uriMetadata, userId, false)
   gameTokens.push(gameToken)
   const _lastIndex = gameTokens.length - 1
-  const _gameTokens: u32[] = userToGameTokens.get(userId) || []
+  let _gameTokens: u32[] = []
+  if (userToGameTokens.contains(userId)) {
+    _gameTokens = userToGameTokens.getSome(userId)
+  }
   _gameTokens.push(_lastIndex)
   userToGameTokens.set(userId, _gameTokens)
   //emit tokenRewarded(user_id, _last_index) TODO
@@ -267,30 +310,44 @@ export function rewardGameToken (userId: u32, uriMetadata: string) {
   
 export function getGameTokens (userId: u32): GameToken[] {
   assert(userId != 0, "a valid user id is required")
-  const _tokenIndexes = userToGameTokens.get(userId) || []
-  return _tokenIndexes.map((tokenIndex) => gameTokens[tokenIndex])
+  let _tokenIndexes: u32[] = []
+  if (userToGameTokens.contains(userId)) {
+    _tokenIndexes = userToGameTokens.getSome(userId)
+  }
+  return _tokenIndexes.map<GameToken>((tokenIndex: u32) => gameTokens[tokenIndex])
 }
   
-export function rewardPoints (userId: u32, points: u32) {
+export function rewardPoints (userId: u32, points: u32): void {
   assert(isOwner(), "You are not authorized to run this function")
   assert(userId != 0, "a valid user id is required")
   assert(points > 0, "score points must be greater than zero")
-  const maxPointsReward = storage.get<u16>(maxPointsRewardKey) || 0
+  let maxPointsReward: u16 = 0
+  if (storage.contains(maxPointsRewardKey)) {
+    maxPointsReward = storage.getSome<u16>(maxPointsRewardKey)
+  }
   assert(points <= maxPointsReward, "score points can't be greater than max_points_reward")
-  const currentPoints = userToPoints.get(userId) || 0
+  
+  let currentPoints: u32 = 0
+  if (userToPoints.contains(userId)) {
+    currentPoints = userToPoints.getSome(userId)
+  }
   userToPoints.set(userId, currentPoints + points)
   //emit pointsRewarded(user_id, user_points[user_id])
 }
   
-  
-  // user object
-export function getUserObject (userId: u32): GameUser {
-  const nextUserId = storage.get<u32>(nextUserIdKey) || 1
+// user object
+
+export function getUserObject (userId: u32): GameUser|null {
+  let nextUserId: u32 = 1
+  if (storage.contains(nextUserIdKey)) {
+    nextUserId = storage.getSome<u32>(nextUserIdKey)
+  }
   assert(userId > 0 && userId < nextUserId, "a valid user id is required")
   
   const unlockKey = userToUnlock.get(userId)
   const account = userToAccount.getSome(userId)
 
+  //return null
   const user = new GameUser()
   user.userId = userId;
   user.nearAccount = account
@@ -298,15 +355,27 @@ export function getUserObject (userId: u32): GameUser {
   if (unlockKey != null) {
     user.unlockKey = unlockKey
   }
-  user.accessories = userToAccessories.get(userId) || []
-  user.gameTokens = userToGameTokens.get(userId) || []
-  user.points = userToPoints.get(userId) || 0
-  user.turn = userToTurn.get(userId) || 0
+  user.accessories = []
+  if (userToAccessories.contains(userId)) {
+    user.accessories = userToAccessories.getSome(userId)
+  }
+  user.gameTokens = []
+  if (userToGameTokens.contains(userId)) {
+    user.gameTokens = userToGameTokens.getSome(userId)
+  }
+  user.points = 0
+  if (userToPoints.contains(userId)) {
+    user.points = userToPoints.getSome(userId)
+  }
+  user.turn = 0
+  if (userToTurn.contains(userId)) {
+    user.turn = userToTurn.getSome(userId)
+  }
   return user
 }
   
-  // line
-export function addToLine (userId: u32) {
+// line
+export function addToLine (userId: u32): void {
   assert(isOwner(), "You are not authorized to run this function")
   assert(userId != 0, "user id not valid")
   const lineLength = storage.getPrimitive(lineLengthKey, 0)
@@ -338,12 +407,15 @@ export function addToLine (userId: u32) {
   // emit turnAssigned(user_id, last_turn) TODO ? can I just return instead of emiting signals?
 }
   
-export function peek () {
+export function peek (): void {
   assert(isOwner(), "You are not authorized to run this function")
   const firstInLine = storage.getPrimitive(firstInLineKey, 0)
   assert(firstInLine != 0, "there are no users in line")
   const previousUser = firstInLine
-  const nextUser = waitingLine.get(firstInLine) || 0
+  let nextUser = 0
+  if (waitingLine.contains(firstInLine)) {
+    nextUser = waitingLine.getSome(firstInLine)
+  }
   storage.set(firstInLineKey, nextUser)
   if (nextUser == 0) {
     storage.set(lastInLineKey, 0)
@@ -356,18 +428,30 @@ export function peek () {
 }
 
 export function turnsToPlay(userId: u32): u32 {
-  const turn = userToTurn.get(userId) || u32.MAX_VALUE
+  let turn = u32.MAX_VALUE
+  if (userToTurn.contains(userId)) {
+    turn = userToTurn.getSome(userId)
+  }
   const firstInLine = storage.getPrimitive(firstInLineKey, 0)
-  return turn - (userToTurn.get(firstInLine) || 0)
+  let firstInLineTurn = 0
+  if (userToTurn.contains(firstInLine)) {
+    firstInLineTurn = userToTurn.getSome(firstInLine)
+  }
+  return turn - firstInLineTurn
 }
   
+
 export function getLine(): u32[] {
   const line: u32[] = [];
   const firstInLine = storage.getPrimitive(firstInLineKey, 0)
   let _userIterator = firstInLine;
   while (_userIterator != 0) {
     line.push(_userIterator)
-    _userIterator = waitingLine.get(_userIterator) || 0
+    if (waitingLine.contains(_userIterator)) {
+      _userIterator = waitingLine.getSome(_userIterator)
+    } else {
+      _userIterator = 0
+    }
   }
   return line;
 }

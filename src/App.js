@@ -24,9 +24,10 @@ export default function App() {
       if (window.walletConnection.isSignedIn()) {
 
         // window.contract is set by initContract in index.js
-        window.contract.getGreeting({ accountId: window.accountId })
-          .then(greetingFromContract => {
-            setGreeting(greetingFromContract)
+        window.contract.getLine({ accountId: window.accountId })
+          .then(waitingLine => {
+            console.log(waitingLine)
+            //setGreeting(greetingFromContract)
           })
       }
     },

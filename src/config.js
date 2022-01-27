@@ -1,4 +1,4 @@
-const CONTRACT_NAME = process.env.CONTRACT_NAME ||'nearcontracts'
+const CONTRACT_NAME = process.env.CONTRACT_NAME || 'tbas.neuromancer.testnet'
 
 function getConfig(env) {
   switch (env) {
