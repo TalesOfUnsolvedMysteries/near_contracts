@@ -22,10 +22,11 @@ export async function initContract() {
       'getAccessoriesForUser',
       'getGameTokens',
       'getGlobalAccessories',
-      'getLine',
       'getUserObject',
       'hasAccessory',
       'turnsToPlay',
+      'getLine',
+      'getUserId',
     ],
     // Change methods can modify the state. But you don't receive the returned value when called.
     changeMethods: [

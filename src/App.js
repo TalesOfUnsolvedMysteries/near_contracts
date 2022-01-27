@@ -8,7 +8,7 @@ const { networkId } = getConfig(process.env.NODE_ENV || 'development')
 
 export default function App() {
   // use React Hooks to store greeting in component state
-  const [greeting, setGreeting] = React.useState()
+  const [greeting, setGreeting] = React.useState('nothing')
 
   // when the user has not yet interacted with the form, disable the button
   const [buttonDisabled, setButtonDisabled] = React.useState(true)
@@ -97,10 +97,10 @@ export default function App() {
 
           try {
             // make an update call to the smart contract
-            await window.contract.setGreeting({
+            /*await window.contract.setGreeting({
               // pass the value that the user entered in the greeting field
               message: newGreeting
-            })
+            })*/
           } catch (e) {
             alert(
               'Something went wrong! ' +
@@ -153,6 +153,25 @@ export default function App() {
             </div>
           </fieldset>
         </form>
+        <button onClick={async event => {
+          try {
+            // make an update call to the smart contract
+            const result = await window.contract.getUserId({
+              accountId: window.accountId
+            })
+            console.log(result)
+          } catch (e) {
+            alert(
+              'Something went wrong! ' +
+              'Maybe you need to sign out and back in? ' +
+              'Check your browser console for more info.'
+            )
+            throw e
+          } finally {
+            // re-enable the form, whether the call succeeded or failed
+            fieldset.disabled = false
+          }
+        }}>test</button>
         <p>
           Look at that! A Hello World app! This greeting is stored on the NEAR blockchain. Check it out:
         </p>

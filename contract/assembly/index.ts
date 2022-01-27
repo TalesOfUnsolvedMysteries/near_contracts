@@ -1,6 +1,6 @@
 // We're all stars now in the bug show
 
-import { Context, logging, math, PersistentMap, PersistentVector, storage, u128, u256 } from 'near-sdk-as'
+import { Context, context, logging, math, PersistentMap, PersistentVector, storage, u128, u256 } from 'near-sdk-as'
 
 // contract owner is the same as Context.contractName
 
@@ -259,6 +259,13 @@ export function buyAccessory(accessoryId: u8): void {
   assert(value == priceForAccessory, "is not the right price")
   _addAccessoryToUser(_userId, accessoryId)
   // total_crypto += value; 
+}
+
+export function getUserId(accountId: string): u32 {
+  if (accountToUser.contains(accountId)) {
+    return accountToUser.getSome(accountId)
+  }
+  return 0
 }
 
 export function buyAccessoryWithPoints(accessoryId: u8): void {
