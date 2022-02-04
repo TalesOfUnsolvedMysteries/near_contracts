@@ -19,34 +19,36 @@ export async function initContract() {
   window.contract = await new Contract(window.walletConnection.account(), nearConfig.contractName, {
     // View methods are read only. They don't modify the state, but usually return some value.
     viewMethods: [
-      'getAccessoriesForUser',
-      'getGameTokens',
-      'getGlobalAccessories',
-      'getUserObject',
-      'hasAccessory',
-      'turnsToPlay',
-      'getLine',
-      'getUserId',
+      'getAccessoriesForUser', // - ok
+      'getGameTokens', // - ok
+      'getGlobalAccessories', // - ok
+      'getUserObject', // - ok
+      'hasAccessory', // - ok
+      'turnsToPlay', // - ok
+      'getLine', // - ok
+      'getUserId', // - ok
+      'getGameConfig', // - ok
+      'getAccessory',
     ],
     // Change methods can modify the state. But you don't receive the returned value when called.
     changeMethods: [
-      'buyAccessory',             // user - payable
-      'takeUserOwnership',        // user - payable
+      'buyAccessory',             // user - payable - ok
+      'takeUserOwnership',        // user - payable - ok
+      'buyAccessoryWithPoints',   // user  - ok
 
-      'addToLine',                // admin
-      'allocateUser',             // admin
-      'buyAccessoryWithPoints',   // user
-      'peek',                     // admin
-      'removeAccessoryForPublic', // admin
-      'rewardGameToken',          // admin
-      'rewardPoints',             // admin
-      'setBaseURI',               // admin
-      'setMaxLineCapacity',       // admin
-      'setMaxPointsReward',       // admin
-      'setPriceForAccessory',     // admin
-      'setPriceToUnlockUser',     // admin
-      'unlockAccessoryForPublic', // admin
-      'unlockAccessoryForUser',   // admin
+      'addToLine',                // admin - ok
+      'allocateUser',             // admin - ok
+      'peek',                     // admin - ok
+      'rewardGameToken',          // admin - ok
+      'rewardPoints',             // admin - ok
+      'setBaseURI',               // admin - ok
+      'setMaxLineCapacity',       // admin - ok 
+      'setMaxPointsReward',       // admin - ok
+      'setPriceToUnlockUser',     // admin - ok
+      'setPriceForAccessory',     // admin - ok
+      'unlockAccessoryForPublic', // admin - ok
+      'removeAccessoryForPublic', // admin - ok
+      'unlockAccessoryForUser',   // admin - ok
     ],
   })
 }
