@@ -208,6 +208,22 @@ function mergeUsers (userIdCell: u32, userIdAndroid: u32): void {
   // delete old user association
   userToAccount.delete(userIdAndroid)
 }
+function _setUserOwnership (userId: u32, account: string, secret: string): bool {
+  const unlockKey = userToUnlock.getSome(userId)
+  const buffCoded = String.UTF8.encode(secret)
+  const parsed = Uint8Array.wrap(buffCoded)
+  assert(math.keccak256(parsed).toString() == unlockKey.toString(), "the secret word is not correct")
+  // check if there is an existing user id associated to this msg.sender
+  
+  if (accountToUser.contains(account)) {
+    const previousUserId: u32 = accountToUser.getSome(account)
+    mergeUsers(userId, previousUserId)
+  }
+  accountToUser.set(account, userId)
+  userToAccount.set(userId, account)
+  userToUnlock.delete(userId)
+  return true
+}
 
 @payable
 export function takeUserOwnership (userId: u32, secret: string): void {
@@ -218,21 +234,16 @@ export function takeUserOwnership (userId: u32, secret: string): void {
     priceToUnlockUser = storage.getSome<u128>(priceToUnlockUserKey)
   }
   assert(attachedDeposit == priceToUnlockUser, "unlock the user requires a deposit of $" + priceToUnlockUser.toString())
-  const unlockKey = userToUnlock.getSome(userId)
-  const buffCoded = String.UTF8.encode(secret)
-  const parsed = Uint8Array.wrap(buffCoded)
-  assert(math.keccak256(parsed).toString() == unlockKey.toString(), "the secret word is not correct")
-  // check if there is an existing user id associated to this msg.sender
   const sender = Context.sender
-  if (accountToUser.contains(sender)) {
-    const previousUserId: u32 = accountToUser.getSome(sender)
-    mergeUsers(userId, previousUserId)
-  }
-  accountToUser.set(sender, userId)
-  userToAccount.set(userId, sender)
-  userToUnlock.delete(userId)
+  _setUserOwnership(userId, sender, secret)
   // total_crypto += price_to_unlock_user;
 }
+
+export function setUserOwnership (userId: u32, account: string, secret: string): void {
+  assert(isOwner(), "You are not authorized to run this function")
+  _setUserOwnership(userId, account, secret)
+}
+
 
 // accessories functionality
 export function unlockAccessoryForPublic (accessoryId: u8): void {
