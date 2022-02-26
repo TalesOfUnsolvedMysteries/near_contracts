@@ -1,6 +1,8 @@
 // We're all stars now in the bug show
 
-import { Context, context, logging, math, PersistentMap, PersistentVector, storage, u128, u256 } from 'near-sdk-as'
+import { Context, context, logging, math, PersistentMap, PersistentVector, storage, u128, u256, PersistentUnorderedMap } from 'near-sdk-as'
+
+import { Token, NFTMetadata, TokenMetadata } from './models';
 
 // contract owner is the same as Context.contractName
 
@@ -81,6 +83,10 @@ const lineLengthKey = "lineLength"
 const lastTurnKey = "lastTurn"
 const firstInLineKey = "firstInLine"
 const lastInLineKey = "lastInLine"
+const nftMetadataKey = "nft_m"
+
+// NFT standard
+export const TokenMetadataById = new PersistentUnorderedMap<string, TokenMetadata>("m");
 
 // utilities
 function isOwner (): bool {
@@ -373,10 +379,10 @@ export function getGlobalAccessories (): u8[] {
 }
 
 // game tokens - only rewarded by the admin 
-export function rewardGameToken (userId: u32, uriMetadata: string): u32 {
+export function rewardGameToken (userId: u32, metadata: TokenMetadata): u32 {
   assert(isOwner(), "You are not authorized to run this function")
   assert(userId != 0, "a valid user_id is required")
-  const gameToken = new GameToken(uriMetadata, userId, false)
+  const gameToken = new GameToken(metadata.reference, userId, false)
   gameTokens.push(gameToken)
   const _lastIndex = gameTokens.length - 1
   let _gameTokens: u32[] = []
@@ -386,6 +392,7 @@ export function rewardGameToken (userId: u32, uriMetadata: string): u32 {
   _gameTokens.push(_lastIndex)
   userToGameTokens.set(userId, _gameTokens)
   //emit tokenRewarded(user_id, _last_index) TODO
+  TokenMetadataById.set(_lastIndex.toString(), metadata)
   return _lastIndex
 }
   
@@ -570,4 +577,103 @@ export function getGameConfig(): GameConfig {
     gameConfig.priceToUnlockUser = storage.getSome<u128>(priceToUnlockUserKey)
   }
   return gameConfig
+}
+
+
+// NFT setup 
+export function init(metadata: NFTMetadata): void {
+  assert(isOwner(), 'You are not authorized to run this function')
+  const Metadata: NFTMetadata = new NFTMetadata(metadata.spec, metadata.name, metadata.symbol, metadata.icon, metadata.base_uri, metadata.reference, metadata.reference_hash)
+  storage.set(nftMetadataKey, Metadata)
+}
+
+export function nft_metadata(): NFTMetadata {
+  return storage.getSome<NFTMetadata>(nftMetadataKey);
+}
+
+export function nft_transfer(receiver_id: string, token_id: string, approval_id: u64=0, memo?: string|null):void {
+  // empty by now
+}
+
+// experimental
+export function nft_mint(receiver_id: string, token_id: string, metadata: TokenMetadata): void {
+  assert(isOwner(), 'You are not authorized to run this function')
+  logging.log('EVENT_JSON:{"standard": "nep171","version": "1.0.0", "event": "nft_mint", "data": [ {"owner_id": "'+ receiver_id +'", "token_ids": ["' + token_id + '"]}]}')
+  storage.set<u128>(priceToUnlockUserKey, u128.One)
+}
+
+// Returns the token with the given `token_id` or `null` if no such token.
+export function nft_token(token_id: string): Token|null {
+  if (!TokenMetadataById.contains(token_id)) {
+    return null;
+  }
+  const _index = <i32>Number.parseInt(token_id)
+  // check this index actually is present on _index
+  const gameToken = gameTokens[_index]
+  const owner_id = userToAccount.getSome(gameToken.owner)
+  const metadata = TokenMetadataById.getSome(token_id)
+  return { id: token_id, owner_id, metadata }
+}
+
+export function nft_token_metadata(token_id: string): TokenMetadata|null {
+  const token = nft_token(token_id)
+  if (token) {
+    return token.metadata
+  }
+  return null
+}
+
+export function nft_tokens_for_owner(account_id: string): Set<Token> | null {
+  if (!accountToUser.contains(account_id)) {
+    return null;
+  }
+  const userId = accountToUser.getSome(account_id)
+  const gameTokenIndexes = userToGameTokens.getSome(userId)
+  const tokens = new Set<Token>();
+
+  for (let index = 0; index < gameTokenIndexes.length; index++) {
+    const token_id:string = gameTokenIndexes[index].toString();
+    if (TokenMetadataById.contains(token_id)) {
+      const metadata:TokenMetadata = TokenMetadataById.getSome(token_id);
+      const token = new Token();
+      token.id = token_id;
+      token.owner_id = account_id;
+      token.metadata = metadata;
+      tokens.add(token);
+    }
+  }
+  return tokens;
+}
+
+export function nft_tokens_for_owner_set(account_id: string): Set<string> | null {
+  if (!accountToUser.contains(account_id)) {
+    return null;
+  }
+  const userId = accountToUser.getSome(account_id)
+
+  const gameTokenIndexes = userToGameTokens.getSome(userId)
+  const token_ids = new Set<string>();
+  for (let index = 0; index < gameTokenIndexes.length; index++) {
+    const token_id:string = gameTokenIndexes[index].toString()
+    token_ids.add(token_id)
+  }
+  return token_ids
+}
+
+export function nft_supply_for_owner(account_id: string): string {
+    if (!accountToUser.contains(account_id)) {
+    return '0';
+  }
+  const userId = accountToUser.getSome(account_id)
+
+  const gameTokenIndexes = userToGameTokens.getSome(userId)
+  return gameTokenIndexes.length.toString()
+}
+
+
+export function nft_remove_reward(account_id: string): void {
+  const userId = accountToUser.getSome(account_id)
+  const _gameTokens = userToGameTokens.getSome(userId)
+  _gameTokens.splice(0,1)
+  userToGameTokens.set(userId, _gameTokens)
 }
