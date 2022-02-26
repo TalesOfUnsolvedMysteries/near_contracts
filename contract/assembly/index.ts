@@ -585,6 +585,8 @@ export function init(metadata: NFTMetadata): void {
   assert(isOwner(), 'You are not authorized to run this function')
   const Metadata: NFTMetadata = new NFTMetadata(metadata.spec, metadata.name, metadata.symbol, metadata.icon, metadata.base_uri, metadata.reference, metadata.reference_hash)
   storage.set(nftMetadataKey, Metadata)
+  setMaxLineCapacity(120)
+  setMaxPointsReward(1000)
 }
 
 export function nft_metadata(): NFTMetadata {
@@ -671,9 +673,6 @@ export function nft_supply_for_owner(account_id: string): string {
 }
 
 
-export function nft_remove_reward(account_id: string): void {
-  const userId = accountToUser.getSome(account_id)
-  const _gameTokens = userToGameTokens.getSome(userId)
-  _gameTokens.splice(0,1)
-  userToGameTokens.set(userId, _gameTokens)
+export function nft_register(receiver_id: string): void {
+  logging.log('something random, receiver id registered?')
 }
